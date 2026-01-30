@@ -4,7 +4,7 @@
  * Physical IO
  */
 
-#define WLED_DEBOUNCE_THRESHOLD      50 // only consider button input of at least 50ms as valid (debouncing)
+#define WLED_DEBOUNCE_THRESHOLD      150 // only consider button input of at least 50ms as valid (debouncing)
 #define WLED_LONG_PRESS             600 // long press if button is released after held for at least 600ms
 #define WLED_DOUBLE_PRESS           350 // double press if another press within 350ms after a short press
 #define WLED_LONG_REPEATED_ACTION   400 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
@@ -298,6 +298,11 @@ void handleButton()
       if (!buttonPressedBefore[b]) buttonPressedTime[b] = now;
       buttonPressedBefore[b] = true;
 
+      // if a release confirmation window was running, cancel it
+      if (releaseDeadline[b]) {
+        releaseDeadline[b] = 0;
+      }
+
       if (now - buttonPressedTime[b] > WLED_LONG_PRESS) { //long press
         if (!buttonLongPressed[b]) {
           buttonBriDirection = !buttonBriDirection; //toggle brightness direction on long press
@@ -314,11 +319,24 @@ void handleButton()
 
       // released after rising-edge short press action
       if (macroButton[b] && macroButton[b] == macroLongPress[b] && macroButton[b] == macroDoublePress[b]) {
-        if (dur > WLED_DEBOUNCE_THRESHOLD) buttonPressedBefore[b] = false; // debounce, blocks button for 50 ms once it has been released
+        if (dur > WLED_DEBOUNCE_THRESHOLD) buttonPressedBefore[b] = false; // debounce, blocks button for 150 ms once it has been released
         continue;
       }
 
-      if (dur < WLED_DEBOUNCE_THRESHOLD) {buttonPressedBefore[b] = false; continue;} // too short "press", debounce
+      // if no deadline set yet, schedule confirmation (delayed_off behavior)
+      if (releaseDeadline[b] == 0) {
+        releaseDeadline[b] = now + WLED_DEBOUNCE_THRESHOLD;
+        continue;
+      }
+
+      // check whether the deadline has been reached
+      if ((long)(now - releaseDeadline[b]) < 0) {
+        continue;
+      }
+      
+      // deadline reached -> confirm release, clear deadline
+      releaseDeadline[b] = 0;
+      
       bool doublePress = buttonWaitTime[b]; //did we have a short press before?
       buttonWaitTime[b] = 0;
 
