@@ -256,6 +256,7 @@ void handleButton()
 {
   static unsigned long lastAnalogRead = 0UL;
   static unsigned long lastRun = 0UL;
+  static unsigned long releaseDeadline[WLED_MAX_BUTTONS] = {0};
   unsigned long now = millis();
 
   if (strip.isUpdating() && (now - lastRun < ANALOG_BTN_READ_CYCLE+1)) return; // don't interfere with strip update (unless strip is updating continuously, e.g. very long strips)
